@@ -5,6 +5,7 @@ use bevy::{
 };
 
 const CUBE_SCALE: f32 = 20.;
+const WALL_POSITION: f32 = -452.;
 
 #[derive(Component)]
 struct Cube {
@@ -22,7 +23,14 @@ fn main() {
             ..Default::default()
         }))
         .add_systems(Startup, setup)
-        .add_systems(FixedUpdate, (cube_velocity_system, cube_collision_system))
+        .add_systems(
+            FixedUpdate,
+            (
+                cube_velocity_system,
+                cube_collision_system,
+                wall_collision_system,
+            ),
+        )
         .run();
 }
 
@@ -40,7 +48,9 @@ fn setup(
     });
 
     // Prepare meshes
-    let floor_mesh = meshes.add(shape::Quad::new(Vec2::new(99999., 4.)).into());
+    let floor_mesh: Mesh2dHandle = meshes
+        .add(shape::Quad::new(Vec2::new(99999., 4.)).into())
+        .into();
     let cube_mesh: Mesh2dHandle = meshes
         .add(shape::Quad::new(Vec2::new(1., 1.)).into())
         .into();
@@ -51,10 +61,22 @@ fn setup(
 
     // Spawn floor
     commands.spawn(MaterialMesh2dBundle {
-        mesh: floor_mesh.into(),
+        mesh: floor_mesh.clone(),
         material: gray_material.clone(),
         transform: Transform {
             translation: Vec3::new(0., -202., 0.),
+            ..Default::default()
+        },
+        ..Default::default()
+    });
+
+    // spawn wall
+    commands.spawn(MaterialMesh2dBundle {
+        mesh: floor_mesh.clone(),
+        material: gray_material.clone(),
+        transform: Transform {
+            translation: Vec3::new(WALL_POSITION - 2., 0., 0.),
+            rotation: Quat::from_rotation_z(std::f32::consts::FRAC_PI_2),
             ..Default::default()
         },
         ..Default::default()
@@ -126,6 +148,15 @@ fn cube_collision_system(mut query: Query<(&Transform, &mut Cube)>) {
 
             c1.velocity = v1;
             c2.velocity = v2;
+        }
+    }
+}
+
+fn wall_collision_system(mut query: Query<(&mut Transform, &mut Cube)>) {
+    for (mut tf, mut cube) in query.iter_mut() {
+        if tf.translation.x - tf.scale.x / 2. <= WALL_POSITION {
+            tf.translation.x = WALL_POSITION + tf.scale.x / 2.;
+            cube.velocity *= -1.;
         }
     }
 }
