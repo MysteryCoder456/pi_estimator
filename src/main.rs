@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     prelude::*,
@@ -28,6 +30,7 @@ fn main() {
             }),
             ..Default::default()
         }))
+        .insert_resource(FixedTime::new(Duration::from_micros(500)))
         .insert_resource(CollisionCount(0))
         .add_systems(Startup, setup)
         .add_systems(
@@ -112,14 +115,14 @@ fn setup(
     ));
 
     // Spawn big cube
-    let big_cube_mass: f32 = 100.;
-    let big_cube_side = big_cube_mass.powf(1. / 3.);
+    let big_cube_mass: f32 = 10000.;
+    let big_cube_side = big_cube_mass.powf(1. / 6.);
     commands.spawn((
         MaterialMesh2dBundle {
             mesh: cube_mesh.clone(),
             material: white_material.clone(),
             transform: Transform {
-                translation: Vec3::new(200., -200. + CUBE_SCALE * big_cube_side / 2., 0.),
+                translation: Vec3::new(150., -200. + CUBE_SCALE * big_cube_side / 2., 0.),
                 scale: Vec3::ONE * CUBE_SCALE * big_cube_side,
                 ..Default::default()
             },
@@ -127,7 +130,7 @@ fn setup(
         },
         Cube {
             mass: big_cube_mass,
-            velocity: -70.,
+            velocity: -75.,
         },
     ));
 
