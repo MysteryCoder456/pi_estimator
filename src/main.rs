@@ -1,7 +1,7 @@
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     prelude::*,
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+    sprite::{collide_aabb, MaterialMesh2dBundle, Mesh2dHandle},
 };
 
 const CUBE_SCALE: f32 = 20.;
@@ -22,7 +22,7 @@ fn main() {
             ..Default::default()
         }))
         .add_systems(Startup, setup)
-        .add_systems(FixedUpdate, cube_velocity_system)
+        .add_systems(FixedUpdate, (cube_velocity_system, cube_collision_system))
         .run();
 }
 
@@ -94,7 +94,7 @@ fn setup(
         },
         Cube {
             mass: big_cube_mass,
-            velocity: -20.,
+            velocity: -50.,
         },
     ));
 }
@@ -107,4 +107,25 @@ fn cube_velocity_system(time: Res<FixedTime>, mut query: Query<(&mut Transform, 
     }
 }
 
-// TODO: Collisions
+fn cube_collision_system(mut query: Query<(&Transform, &mut Cube)>) {
+    let mut combinations = query.iter_combinations_mut();
+
+    while let Some([(tf1, mut c1), (tf2, mut c2)]) = combinations.fetch_next() {
+        let collision = collide_aabb::collide(
+            tf1.translation,
+            tf1.scale.truncate(),
+            tf2.translation,
+            tf2.scale.truncate(),
+        );
+
+        if collision.is_some() {
+            let v1 = (2. * c2.mass * c2.velocity + c1.velocity * (c1.mass - c2.mass))
+                / (c1.mass + c2.mass);
+            let v2 = (2. * c1.mass * c1.velocity + c2.velocity * (c2.mass - c1.mass))
+                / (c1.mass + c2.mass);
+
+            c1.velocity = v1;
+            c2.velocity = v2;
+        }
+    }
+}
