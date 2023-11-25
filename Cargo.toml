@@ -1,5 +1,5 @@
 [package]
-name = "pi_estimation"
+name = "pi_estimator"
 version = "0.1.0"
 edition = "2021"
 
