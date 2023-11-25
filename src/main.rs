@@ -7,6 +7,12 @@ use bevy::{
 const CUBE_SCALE: f32 = 20.;
 const WALL_POSITION: f32 = -452.;
 
+#[derive(Resource)]
+struct CollisionCount(i32);
+
+#[derive(Component)]
+struct CollisionCountText;
+
 #[derive(Component)]
 struct Cube {
     mass: f32,
@@ -22,7 +28,12 @@ fn main() {
             }),
             ..Default::default()
         }))
+        .insert_resource(CollisionCount(0))
         .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            collision_text_system.run_if(resource_changed::<CollisionCount>()),
+        )
         .add_systems(
             FixedUpdate,
             (
@@ -116,9 +127,36 @@ fn setup(
         },
         Cube {
             mass: big_cube_mass,
-            velocity: -50.,
+            velocity: -70.,
         },
     ));
+
+    // Spawn collision count text
+    let text_style = TextStyle {
+        font_size: 32.,
+        color: Color::WHITE,
+        ..Default::default()
+    };
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                width: Val::Vw(100.),
+                justify_content: JustifyContent::Center,
+                padding: UiRect::top(Val::Px(8.)),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .with_children(|node| {
+            node.spawn((
+                TextBundle::from_sections([
+                    TextSection::new("Collisions: ", text_style.clone()),
+                    TextSection::new("0", text_style.clone()),
+                ]),
+                CollisionCountText,
+            ));
+        });
 }
 
 fn cube_velocity_system(time: Res<FixedTime>, mut query: Query<(&mut Transform, &Cube)>) {
@@ -129,7 +167,10 @@ fn cube_velocity_system(time: Res<FixedTime>, mut query: Query<(&mut Transform, 
     }
 }
 
-fn cube_collision_system(mut query: Query<(&Transform, &mut Cube)>) {
+fn cube_collision_system(
+    mut collision_count: ResMut<CollisionCount>,
+    mut query: Query<(&Transform, &mut Cube)>,
+) {
     let mut combinations = query.iter_combinations_mut();
 
     while let Some([(tf1, mut c1), (tf2, mut c2)]) = combinations.fetch_next() {
@@ -141,6 +182,8 @@ fn cube_collision_system(mut query: Query<(&Transform, &mut Cube)>) {
         );
 
         if collision.is_some() {
+            collision_count.0 += 1;
+
             let v1 = (2. * c2.mass * c2.velocity + c1.velocity * (c1.mass - c2.mass))
                 / (c1.mass + c2.mass);
             let v2 = (2. * c1.mass * c1.velocity + c2.velocity * (c2.mass - c1.mass))
@@ -152,11 +195,24 @@ fn cube_collision_system(mut query: Query<(&Transform, &mut Cube)>) {
     }
 }
 
-fn wall_collision_system(mut query: Query<(&mut Transform, &mut Cube)>) {
+fn wall_collision_system(
+    mut collision_count: ResMut<CollisionCount>,
+    mut query: Query<(&mut Transform, &mut Cube)>,
+) {
     for (mut tf, mut cube) in query.iter_mut() {
         if tf.translation.x - tf.scale.x / 2. <= WALL_POSITION {
+            collision_count.0 += 1;
             tf.translation.x = WALL_POSITION + tf.scale.x / 2.;
             cube.velocity *= -1.;
         }
+    }
+}
+
+fn collision_text_system(
+    collision_count: Res<CollisionCount>,
+    mut query: Query<&mut Text, With<CollisionCountText>>,
+) {
+    if let Ok(mut text) = query.get_single_mut() {
+        text.sections[1].value = collision_count.0.to_string();
     }
 }
