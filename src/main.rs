@@ -25,6 +25,7 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "π Estimator".to_owned(),
+                canvas: Some("#pi-canvas".to_owned()),
                 ..Default::default()
             }),
             ..Default::default()
