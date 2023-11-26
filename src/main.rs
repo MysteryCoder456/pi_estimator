@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     prelude::*,
@@ -7,7 +5,8 @@ use bevy::{
 };
 
 const CUBE_SCALE: f32 = 20.;
-const WALL_POSITION: f32 = -452.;
+const WALL_POSITION: f32 = -300.;
+const PI_ACCURACY: i32 = 4;
 
 #[derive(Resource)]
 struct CollisionCount(i32);
@@ -30,7 +29,7 @@ fn main() {
             }),
             ..Default::default()
         }))
-        .insert_resource(FixedTime::new(Duration::from_micros(500)))
+        .insert_resource(Time::<Fixed>::from_hz(20000.))
         .insert_resource(CollisionCount(0))
         .add_systems(Startup, setup)
         .add_systems(
@@ -102,7 +101,7 @@ fn setup(
             mesh: cube_mesh.clone(),
             material: white_material.clone(),
             transform: Transform {
-                translation: Vec3::new(0., -190., 0.),
+                translation: Vec3::new(-100., -190., 0.),
                 scale: Vec3::ONE * CUBE_SCALE,
                 ..Default::default()
             },
@@ -115,14 +114,14 @@ fn setup(
     ));
 
     // Spawn big cube
-    let big_cube_mass: f32 = 10000.;
-    let big_cube_side = big_cube_mass.powf(1. / 6.);
+    let big_cube_mass: f32 = 100.0f32.powi(PI_ACCURACY);
+    let big_cube_side = big_cube_mass.log10();
     commands.spawn((
         MaterialMesh2dBundle {
             mesh: cube_mesh.clone(),
             material: white_material.clone(),
             transform: Transform {
-                translation: Vec3::new(150., -200. + CUBE_SCALE * big_cube_side / 2., 0.),
+                translation: Vec3::new(100., -200. + CUBE_SCALE * big_cube_side / 2., 0.),
                 scale: Vec3::ONE * CUBE_SCALE * big_cube_side,
                 ..Default::default()
             },
@@ -130,7 +129,7 @@ fn setup(
         },
         Cube {
             mass: big_cube_mass,
-            velocity: -75.,
+            velocity: -10.,
         },
     ));
 
@@ -162,8 +161,8 @@ fn setup(
         });
 }
 
-fn cube_velocity_system(time: Res<FixedTime>, mut query: Query<(&mut Transform, &Cube)>) {
-    let dt = time.period.as_secs_f32();
+fn cube_velocity_system(time: Res<Time<Fixed>>, mut query: Query<(&mut Transform, &Cube)>) {
+    let dt = time.delta_seconds();
 
     for (mut tf, cube) in query.iter_mut() {
         tf.translation.x += cube.velocity * dt;
@@ -171,12 +170,13 @@ fn cube_velocity_system(time: Res<FixedTime>, mut query: Query<(&mut Transform, 
 }
 
 fn cube_collision_system(
+    time: Res<Time<Fixed>>,
     mut collision_count: ResMut<CollisionCount>,
-    mut query: Query<(&Transform, &mut Cube)>,
+    mut query: Query<(&mut Transform, &mut Cube)>,
 ) {
     let mut combinations = query.iter_combinations_mut();
 
-    while let Some([(tf1, mut c1), (tf2, mut c2)]) = combinations.fetch_next() {
+    while let Some([(mut tf1, mut c1), (mut tf2, mut c2)]) = combinations.fetch_next() {
         let collision = collide_aabb::collide(
             tf1.translation,
             tf1.scale.truncate(),
@@ -191,6 +191,14 @@ fn cube_collision_system(
                 / (c1.mass + c2.mass);
             let v2 = (2. * c1.mass * c1.velocity + c2.velocity * (c2.mass - c1.mass))
                 / (c1.mass + c2.mass);
+
+            let dt = time.delta_seconds();
+
+            if c1.mass < c2.mass {
+                tf1.translation.x -= c1.velocity * dt;
+            } else {
+                tf2.translation.x -= c2.velocity * dt;
+            }
 
             c1.velocity = v1;
             c2.velocity = v2;
